@@ -1,0 +1,13 @@
+{
+  "name": "fieldnotes",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Fieldnotes monorepo: web app and API. Setup scenario fixture for Novus (PX-274).",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:api": "npm run dev --workspace apps/api"
+  }
+}
