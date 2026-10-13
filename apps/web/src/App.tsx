@@ -114,6 +114,21 @@ export function App() {
       .then(setResearcher);
   }, []);
 
+  useEffect(() => {
+    if (!researcher?.id) return;
+    pendo.identify({
+      visitor: {
+        id: researcher.id,
+        email: researcher.email,
+        organizationId: researcher.organizationId,
+      },
+      account: {
+        id: researcher.organizationId,
+        name: researcher.organizationName,
+      },
+    });
+  }, [researcher]);
+
   return (
     <div>
       <nav>
