@@ -35,8 +35,18 @@ function NotebooksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),
     });
-    setNotebooks([(await response.json()) as Notebook, ...notebooks]);
+    const notebook = (await response.json()) as Notebook;
+    setNotebooks([notebook, ...notebooks]);
     setTitle("");
+    // Track only server-confirmed creations. `title` and `notebooks` still hold this
+    // submission's values here; send the title's length rather than its free text.
+    if (response.ok && typeof pendo !== "undefined") {
+      pendo.track("notebook_created", {
+        notebookId: notebook.id,
+        titleLength: title.trim().length,
+        notebookCount: notebooks.length + 1,
+      });
+    }
   };
 
   return (
@@ -77,12 +87,30 @@ function NotebookPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body }),
     });
-    setNotes([...notes, (await response.json()) as Note]);
+    const note = (await response.json()) as Note;
+    setNotes([...notes, note]);
     setBody("");
+    // Track only server-confirmed saves. `body` and `notes` still hold this submission's
+    // values here; send the note's length rather than its free text.
+    if (response.ok && typeof pendo !== "undefined") {
+      pendo.track("note_created", {
+        notebookId,
+        noteId: note.id,
+        bodyLength: body.trim().length,
+        noteCount: notes.length + 1,
+      });
+    }
   };
 
   const share = async () => {
-    await fetch(`/api/notebooks/${notebookId}/share`, { method: "POST" });
+    const response = await fetch(`/api/notebooks/${notebookId}/share`, { method: "POST" });
+    // The button click is auto-captured; this records only shares the server confirmed.
+    if (response.ok && typeof pendo !== "undefined") {
+      pendo.track("notebook_shared", {
+        notebookId,
+        noteCount: notes.length,
+      });
+    }
   };
 
   return (
