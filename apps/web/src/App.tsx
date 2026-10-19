@@ -114,6 +114,24 @@ export function App() {
       .then(setResearcher);
   }, []);
 
+  // Identify the signed-in researcher with Pendo once /api/me has loaded
+  // (pendo.initialize runs once in main.tsx).
+  useEffect(() => {
+    if (researcher) {
+      pendo.identify({
+        visitor: {
+          id: researcher.id,
+          email: researcher.email,
+          organizationId: researcher.organizationId,
+        },
+        account: {
+          id: researcher.organizationId,
+          name: researcher.organizationName,
+        },
+      });
+    }
+  }, [researcher]);
+
   return (
     <div>
       <nav>
