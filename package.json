@@ -1,0 +1,17 @@
+{
+  "name": "fieldnotes",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Fieldnotes monorepo: researcher web app, admin portal, API and shared UI. Setup scenario fixture for Novus (PX-274).",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace @fieldnotes/api",
+    "dev:web": "npm run dev --workspace @fieldnotes/web",
+    "dev:admin": "npm run dev --workspace @fieldnotes/admin",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
