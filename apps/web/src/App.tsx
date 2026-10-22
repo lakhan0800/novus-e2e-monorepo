@@ -111,7 +111,20 @@ export function App() {
   useEffect(() => {
     void fetch("/api/me")
       .then((response) => response.json())
-      .then(setResearcher);
+      .then((data: Researcher) => {
+        setResearcher(data);
+        pendo.identify({
+          visitor: {
+            id: data.id,
+            email: data.email,
+            organizationId: data.organizationId,
+          },
+          account: {
+            id: data.organizationId,
+            name: data.organizationName,
+          },
+        });
+      });
   }, []);
 
   return (
