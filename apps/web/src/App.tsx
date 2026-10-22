@@ -35,8 +35,17 @@ function NotebooksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),
     });
-    setNotebooks([(await response.json()) as Notebook, ...notebooks]);
+    const notebook = (await response.json()) as Notebook;
+    setNotebooks([notebook, ...notebooks]);
     setTitle("");
+
+    // Track successful notebook creation
+    if (typeof pendo !== "undefined") {
+      pendo.track("notebook_created", {
+        notebookId: notebook.id,
+        title: notebook.title,
+      });
+    }
   };
 
   return (
@@ -77,12 +86,32 @@ function NotebookPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body }),
     });
-    setNotes([...notes, (await response.json()) as Note]);
+    const note = (await response.json()) as Note;
+    setNotes([...notes, note]);
+
+    // Track successful note save
+    if (typeof pendo !== "undefined") {
+      pendo.track("note_saved", {
+        notebookId: notebookId,
+        noteId: note.id,
+        bodyLength: body.length,
+      });
+    }
+
     setBody("");
   };
 
   const share = async () => {
-    await fetch(`/api/notebooks/${notebookId}/share`, { method: "POST" });
+    const response = await fetch(`/api/notebooks/${notebookId}/share`, { method: "POST" });
+    const data = (await response.json()) as { shareUrl: string };
+
+    // Track successful notebook share
+    if (typeof pendo !== "undefined") {
+      pendo.track("notebook_shared", {
+        notebookId: notebookId,
+        shareUrl: data.shareUrl,
+      });
+    }
   };
 
   return (
