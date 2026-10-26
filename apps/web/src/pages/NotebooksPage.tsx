@@ -50,6 +50,11 @@ export function NotebooksPage() {
       const notebook = await api.createNotebook(title);
       setNotebooks([notebook, ...notebooks]);
       setTitle("");
+
+      // Track successful notebook creation
+      if (typeof pendo !== "undefined") {
+        pendo.track("notebook_created", { title: notebook.title });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create the notebook");
     }

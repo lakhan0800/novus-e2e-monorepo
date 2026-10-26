@@ -18,10 +18,28 @@ export function AssistantPanel() {
     setSending(true);
     setError(null);
     try {
-      const { reply } = await api.askAssistant(next);
+      const { reply, model } = await api.askAssistant(next);
       setMessages([...next, { role: "assistant", content: reply }]);
+
+      // Track successful assistant query
+      if (typeof pendo !== "undefined") {
+        pendo.track("assistant_query_completed", {
+          messageCount: next.length + 1,
+          success: true,
+          model: model ?? "unknown",
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "The assistant could not answer");
+
+      // Track failed assistant query
+      if (typeof pendo !== "undefined") {
+        pendo.track("assistant_query_completed", {
+          messageCount: next.length,
+          success: false,
+          model: "unknown",
+        });
+      }
     } finally {
       setSending(false);
     }

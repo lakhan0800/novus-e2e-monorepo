@@ -20,6 +20,25 @@ export function UsersPage() {
     try {
       const updated = await adminApi.updateMember(member.id, changes);
       setMembers(members.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
+
+      if (typeof pendo !== "undefined") {
+        // Track role change
+        if (changes.role !== undefined) {
+          pendo.track("member_role_changed", {
+            memberId: member.id,
+            previousRole: member.role,
+            newRole: changes.role,
+          });
+        }
+
+        // Track status change (activate/deactivate)
+        if (changes.active !== undefined) {
+          pendo.track("member_status_changed", {
+            memberId: member.id,
+            newStatus: changes.active ? "active" : "deactivated",
+          });
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update the user");
     }

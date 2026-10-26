@@ -93,11 +93,29 @@ export function NotebookPage() {
     const result = await api.shareNotebook(notebook.id);
     setShareUrl(result.shareUrl);
     setNotebook({ ...notebook, shared: true });
+
+    // Track successful notebook sharing
+    if (typeof pendo !== "undefined") {
+      pendo.track("notebook_shared", {
+        notebookId: notebook.id,
+        noteCount: notebook.noteCount,
+      });
+    }
   };
 
   const remove = async () => {
     if (!window.confirm(`Delete "${notebook.title}"? This cannot be undone.`)) return;
     await api.deleteNotebook(notebook.id);
+
+    // Track successful notebook deletion
+    if (typeof pendo !== "undefined") {
+      pendo.track("notebook_deleted", {
+        notebookId: notebook.id,
+        title: notebook.title,
+        noteCount: notebook.noteCount,
+      });
+    }
+
     navigate("/");
   };
 

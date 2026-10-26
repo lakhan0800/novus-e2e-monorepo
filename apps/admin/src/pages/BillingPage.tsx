@@ -29,6 +29,14 @@ export function BillingPage() {
     try {
       setBilling(await adminApi.updateBilling(billing));
       setSaved(true);
+
+      // Track successful billing update
+      if (typeof pendo !== "undefined") {
+        pendo.track("billing_updated", {
+          plan: billing.plan,
+          seats: billing.seats,
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save billing details");
     }
