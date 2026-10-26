@@ -1,12 +1,15 @@
 import { Button, ErrorMessage, TextAreaField } from "@fieldnotes/ui";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { api, type ChatMessage } from "../api/client";
+
+const AGENT_ID = "G37mU0mQNWcoud7XGQLW6CKhoPc";
 
 export function AssistantPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const conversationIdRef = useRef(crypto.randomUUID());
 
   const send = async (event: FormEvent) => {
     event.preventDefault();
@@ -17,9 +20,26 @@ export function AssistantPanel() {
     setDraft("");
     setSending(true);
     setError(null);
+
+    const promptMessageId = crypto.randomUUID();
+    window.pendo?.trackAgent("prompt", {
+      agentId: AGENT_ID,
+      conversationId: conversationIdRef.current,
+      messageId: promptMessageId,
+      content,
+    });
+
     try {
-      const { reply } = await api.askAssistant(next);
+      const { reply, model } = await api.askAssistant(next);
       setMessages([...next, { role: "assistant", content: reply }]);
+
+      window.pendo?.trackAgent("agent_response", {
+        agentId: AGENT_ID,
+        conversationId: conversationIdRef.current,
+        messageId: crypto.randomUUID(),
+        content: reply,
+        ...(model ? { modelUsed: model } : {}),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "The assistant could not answer");
     } finally {
