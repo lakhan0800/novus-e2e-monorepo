@@ -5,6 +5,12 @@ import "@fieldnotes/ui/styles.css";
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthContext";
 
+pendo.initialize({
+  visitor: {
+    id: "",
+  },
+});
+
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root element");
 

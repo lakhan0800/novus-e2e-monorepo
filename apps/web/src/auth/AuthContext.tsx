@@ -1,6 +1,23 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, tokenStore, type Profile } from "../api/client";
 
+function identifyPendoUser(profile: Profile) {
+  pendo.identify({
+    visitor: {
+      id: profile.id,
+      email: profile.email,
+      full_name: profile.name,
+      role: profile.role,
+      organizationId: profile.organization.id,
+    },
+    account: {
+      id: profile.organization.id,
+      name: profile.organization.name,
+      plan: profile.organization.plan,
+    },
+  });
+}
+
 interface AuthState {
   user: Profile | null;
   loading: boolean;
@@ -19,7 +36,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!tokenStore.get()) return;
     api
       .me()
-      .then(setUser)
+      .then((profile) => {
+        setUser(profile);
+        identifyPendoUser(profile);
+      })
       .catch(() => tokenStore.clear())
       .finally(() => setLoading(false));
   }, []);
@@ -28,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { token, user: profile } = await api.login(email, password);
     tokenStore.set(token);
     setUser(profile);
+    identifyPendoUser(profile);
   };
 
   const signOut = async () => {
@@ -36,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       tokenStore.clear();
       setUser(null);
+      pendo.clearSession();
     }
   };
 
