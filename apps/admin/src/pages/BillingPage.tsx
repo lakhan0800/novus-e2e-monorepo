@@ -1,6 +1,8 @@
 import { Button, Card, ErrorMessage, SelectField, TextField } from "@fieldnotes/ui";
 import { useEffect, useState, type FormEvent } from "react";
+import { trackAdminEvent } from "../analytics/track";
 import { adminApi, type Billing, type Plan } from "../api/client";
+import { useAdminAuth } from "../auth/AdminAuthContext";
 
 const PLAN_OPTIONS = [
   { value: "free", label: "Free" },
@@ -8,15 +10,22 @@ const PLAN_OPTIONS = [
   { value: "enterprise", label: "Enterprise" },
 ];
 
+const PLAN_RANK: Record<Plan, number> = { free: 0, team: 1, enterprise: 2 };
+
 export function BillingPage() {
+  const { admin } = useAdminAuth();
   const [billing, setBilling] = useState<Billing | null>(null);
+  const [savedBilling, setSavedBilling] = useState<Billing | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     adminApi
       .getBilling()
-      .then(setBilling)
+      .then((loaded) => {
+        setBilling(loaded);
+        setSavedBilling(loaded);
+      })
       .catch((err: Error) => setError(err.message));
   }, []);
 
@@ -27,7 +36,24 @@ export function BillingPage() {
     setSaved(false);
     setError(null);
     try {
-      setBilling(await adminApi.updateBilling(billing));
+      const updated = await adminApi.updateBilling(billing);
+      // Conversion milestone: the server accepted the plan and seat count. billingEmail is PII and is not sent.
+      const previousPlan = savedBilling?.plan;
+      trackAdminEvent("billing_plan_updated", {
+        plan: updated.plan,
+        previousPlan,
+        planChange:
+          previousPlan === undefined || previousPlan === updated.plan
+            ? "none"
+            : PLAN_RANK[updated.plan] > PLAN_RANK[previousPlan]
+              ? "upgrade"
+              : "downgrade",
+        seats: updated.seats,
+        previousSeats: savedBilling?.seats,
+        organizationId: admin?.organization.id,
+      });
+      setBilling(updated);
+      setSavedBilling(updated);
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save billing details");

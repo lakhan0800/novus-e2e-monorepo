@@ -18,10 +18,23 @@ export function AssistantPanel() {
     setSending(true);
     setError(null);
     try {
-      const { reply } = await api.askAssistant(next);
+      const { reply, model } = await api.askAssistant(next);
+      // Outcome of the assistant request: answered, or answered with the "not configured" message.
+      window.pendo?.track("research_assistant_reply_received", {
+        success: true,
+        assistantConfigured: model !== null,
+        ...(model ? { model } : {}),
+        messageCount: next.length,
+      });
       setMessages([...next, { role: "assistant", content: reply }]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The assistant could not answer");
+      const message = err instanceof Error ? err.message : "The assistant could not answer";
+      window.pendo?.track("research_assistant_reply_received", {
+        success: false,
+        messageCount: next.length,
+        errorMessage: message.slice(0, 100),
+      });
+      setError(message);
     } finally {
       setSending(false);
     }
