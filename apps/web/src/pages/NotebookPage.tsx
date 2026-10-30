@@ -7,10 +7,12 @@ import { useAuth } from "../auth/AuthContext";
 
 function NoteItem({
   notebookId,
+  organizationId,
   note,
   onSaved,
 }: {
   notebookId: string;
+  organizationId?: string;
   note: Note;
   onSaved: (note: Note) => void;
 }) {
@@ -19,7 +21,14 @@ function NoteItem({
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    onSaved(await api.updateNote(notebookId, note.id, body));
+    const saved = await api.updateNote(notebookId, note.id, body);
+    onSaved(saved);
+    // The server saved the edited note and it replaced the old one in the list.
+    trackNotebookObjectEvent("Note updated", {
+      notebookId,
+      organizationId,
+      noteId: saved.id,
+    });
     setEditing(false);
   };
 
@@ -79,6 +88,12 @@ export function NotebookPage() {
     event.preventDefault();
     const updated = await api.renameNotebook(notebook.id, title);
     setNotebook({ ...notebook, ...updated });
+    // The server saved the new title.
+    trackNotebookObjectEvent("Notebook renamed", {
+      notebookId: notebook.id,
+      organizationId: user?.organization.id,
+      notebookShared: updated.shared,
+    });
   };
 
   const addNote = async (event: FormEvent) => {
@@ -112,6 +127,12 @@ export function NotebookPage() {
   const remove = async () => {
     if (!window.confirm(`Delete "${notebook.title}"? This cannot be undone.`)) return;
     await api.deleteNotebook(notebook.id);
+    // The server deleted the notebook; fire before redirecting to the list.
+    trackNotebookObjectEvent("Notebook deleted", {
+      notebookId: notebook.id,
+      organizationId: user?.organization.id,
+      notebookShared: notebook.shared,
+    });
     navigate("/");
   };
 
@@ -156,7 +177,13 @@ export function NotebookPage() {
       <Card title="Notes">
         <ul>
           {notebook.notes.map((note) => (
-            <NoteItem key={note.id} notebookId={notebook.id} note={note} onSaved={replaceNote} />
+            <NoteItem
+              key={note.id}
+              notebookId={notebook.id}
+              organizationId={user?.organization.id}
+              note={note}
+              onSaved={replaceNote}
+            />
           ))}
         </ul>
         <form onSubmit={(event) => void addNote(event)}>

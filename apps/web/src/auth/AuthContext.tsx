@@ -1,5 +1,17 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { trackEvent } from "../analytics/trackEvent";
 import { api, tokenStore, type Profile } from "../api/client";
+
+// Module-level guard so "Session restored" fires once per page load, even when
+// StrictMode runs the restore effect twice or the provider remounts.
+let sessionRestoreTracked = false;
+
+function profileProperties(profile: Profile) {
+  return {
+    user_role: profile.role,
+    organization_plan: profile.organization.plan,
+  };
+}
 
 interface AuthState {
   user: Profile | null;
@@ -19,7 +31,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!tokenStore.get()) return;
     api
       .me()
-      .then(setUser)
+      .then((profile) => {
+        setUser(profile);
+        // A saved token was accepted and the profile loaded, so the login form is skipped.
+        if (!sessionRestoreTracked) {
+          sessionRestoreTracked = true;
+          trackEvent("Session restored", profileProperties(profile));
+        }
+      })
       .catch(() => tokenStore.clear())
       .finally(() => setLoading(false));
   }, []);
@@ -28,6 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { token, user: profile } = await api.login(email, password);
     tokenStore.set(token);
     setUser(profile);
+    // Credentials accepted, token stored and profile loaded.
+    trackEvent("Signed in", profileProperties(profile));
   };
 
   const signOut = async () => {
