@@ -66,6 +66,7 @@ export function NotebooksPage() {
   return (
     <>
       <h1>Notebooks</h1>
+      <p>PX-274 Cortex chat test</p>
       <Card title="New notebook">
         <form onSubmit={(event) => void create(event)}>
           <TextField
