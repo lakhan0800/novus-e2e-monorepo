@@ -24,6 +24,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Identify the signed-in user in Pendo on login, session hydration and profile updates.
+  useEffect(() => {
+    if (!user) return;
+    pendo.identify({
+      visitor: {
+        id: user.id,
+        email: user.email,
+        full_name: user.name,
+        role: user.role,
+        accountId: user.organization.id,
+      },
+      account: {
+        id: user.organization.id,
+        name: user.organization.name,
+        plan: user.organization.plan,
+      },
+    });
+  }, [user]);
+
   const signIn = async (email: string, password: string) => {
     const { token, user: profile } = await api.login(email, password);
     tokenStore.set(token);
@@ -36,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       tokenStore.clear();
       setUser(null);
+      pendo.clearSession();
     }
   };
 
