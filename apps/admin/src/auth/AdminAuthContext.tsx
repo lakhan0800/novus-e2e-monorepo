@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { trackEvent } from "../analytics/pendo";
 import { adminApi, tokenStore, type AdminProfile } from "../api/client";
 
 interface AdminAuthState {
@@ -32,10 +33,20 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       tokenStore.set(token);
       await adminApi.logout().catch(() => undefined);
       tokenStore.clear();
+      // Valid account without the admin role: session revoked, error shown on the login page.
+      trackEvent("Non-admin sign-in rejected", {
+        attempted_role: user.role,
+        organization_plan: user.organization.plan,
+      });
       throw new Error("This portal is for organization admins only");
     }
     tokenStore.set(token);
     setAdmin(user);
+    // Credentials accepted and the account is an admin, so the portal session is established.
+    trackEvent("Admin signed in", {
+      role: user.role,
+      organization_plan: user.organization.plan,
+    });
   };
 
   const signOut = async () => {

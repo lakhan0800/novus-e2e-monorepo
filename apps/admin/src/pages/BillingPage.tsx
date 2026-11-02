@@ -1,5 +1,6 @@
 import { Button, Card, ErrorMessage, SelectField, TextField } from "@fieldnotes/ui";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { trackEvent } from "../analytics/pendo";
 import { adminApi, type Billing, type Plan } from "../api/client";
 
 const PLAN_OPTIONS = [
@@ -12,11 +13,16 @@ export function BillingPage() {
   const [billing, setBilling] = useState<Billing | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Last billing state the server confirmed, used to describe what a save changed.
+  const persistedBilling = useRef<Billing | null>(null);
 
   useEffect(() => {
     adminApi
       .getBilling()
-      .then(setBilling)
+      .then((loaded) => {
+        persistedBilling.current = loaded;
+        setBilling(loaded);
+      })
       .catch((err: Error) => setError(err.message));
   }, []);
 
@@ -27,8 +33,21 @@ export function BillingPage() {
     setSaved(false);
     setError(null);
     try {
-      setBilling(await adminApi.updateBilling(billing));
+      const updated = await adminApi.updateBilling(billing);
+      const previous = persistedBilling.current;
+      persistedBilling.current = updated;
+      setBilling(updated);
       setSaved(true);
+      // Server accepted the billing update and the page shows "Saved.".
+      trackEvent("Billing details saved", {
+        plan: updated.plan,
+        previous_plan: previous?.plan ?? "unknown",
+        plan_changed: previous ? previous.plan !== updated.plan : false,
+        seats: updated.seats,
+        previous_seats: previous?.seats ?? 0,
+        seats_delta: previous ? updated.seats - previous.seats : 0,
+        billing_email_changed: previous ? previous.billingEmail !== updated.billingEmail : false,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save billing details");
     }

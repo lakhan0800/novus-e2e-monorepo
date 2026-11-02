@@ -1,7 +1,30 @@
 import { Badge, Button, Card, DataTable, ErrorMessage, type Column } from "@fieldnotes/ui";
 import { useEffect, useState } from "react";
+import { trackEvent } from "../analytics/pendo";
 import { adminApi, type Member, type Role } from "../api/client";
 import { useAdminAuth } from "../auth/AdminAuthContext";
+
+// Fires only for changes the server confirmed, comparing the previous row with the response.
+function trackMemberUpdate(
+  previous: Member,
+  updated: Member,
+  changes: { role?: Role; active?: boolean }
+) {
+  if (changes.role !== undefined && updated.role !== previous.role) {
+    trackEvent("Member role changed", {
+      previous_role: previous.role,
+      new_role: updated.role,
+      member_active: updated.active,
+    });
+  }
+  if (changes.active !== undefined && updated.active !== previous.active) {
+    if (updated.active) {
+      trackEvent("Member reactivated", { member_role: updated.role });
+    } else {
+      trackEvent("Member deactivated", { member_role: updated.role });
+    }
+  }
+}
 
 export function UsersPage() {
   const { admin } = useAdminAuth();
@@ -20,6 +43,7 @@ export function UsersPage() {
     try {
       const updated = await adminApi.updateMember(member.id, changes);
       setMembers(members.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
+      trackMemberUpdate(member, updated, changes);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update the user");
     }
