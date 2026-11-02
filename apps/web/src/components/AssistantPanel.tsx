@@ -1,5 +1,6 @@
 import { Button, ErrorMessage, TextAreaField } from "@fieldnotes/ui";
 import { useState, type FormEvent } from "react";
+import { RESEARCH_ASSISTANT_AGENT_ID, trackAgentEvent } from "../analytics/agentEvents";
 import { api, type ChatMessage } from "../api/client";
 
 export function AssistantPanel() {
@@ -7,6 +8,7 @@ export function AssistantPanel() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conversationId] = useState(() => crypto.randomUUID());
 
   const send = async (event: FormEvent) => {
     event.preventDefault();
@@ -17,9 +19,24 @@ export function AssistantPanel() {
     setDraft("");
     setSending(true);
     setError(null);
+    trackAgentEvent("prompt", {
+      agentId: RESEARCH_ASSISTANT_AGENT_ID,
+      conversationId,
+      messageId: crypto.randomUUID(),
+      content,
+      suggestedPrompt: false,
+      fileUploaded: false,
+    });
     try {
-      const { reply } = await api.askAssistant(next);
+      const { reply, model } = await api.askAssistant(next);
       setMessages([...next, { role: "assistant", content: reply }]);
+      trackAgentEvent("agent_response", {
+        agentId: RESEARCH_ASSISTANT_AGENT_ID,
+        conversationId,
+        messageId: crypto.randomUUID(),
+        content: reply,
+        modelUsed: model ?? undefined,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "The assistant could not answer");
     } finally {
