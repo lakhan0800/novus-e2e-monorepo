@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { trackEvent } from "../analytics/pendo";
 import { adminApi, tokenStore, type AdminProfile } from "../api/client";
 
 interface AdminAuthState {
@@ -27,15 +28,41 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { token, user } = await adminApi.login(email, password);
+    let session: Awaited<ReturnType<typeof adminApi.login>>;
+    try {
+      session = await adminApi.login(email, password);
+    } catch (err) {
+      // Admin sign-in attempt finished: the API rejected the credentials.
+      trackEvent("admin_sign_in_completed", {
+        outcome: "failure",
+        failure_reason: "credentials_rejected",
+      });
+      throw err;
+    }
+    const { token, user } = session;
     if (user.role !== "admin") {
       tokenStore.set(token);
       await adminApi.logout().catch(() => undefined);
       tokenStore.clear();
+      // Admin sign-in attempt finished: the user is not an organization admin.
+      trackEvent("admin_sign_in_completed", {
+        outcome: "failure",
+        failure_reason: "not_organization_admin",
+        user_role: user.role,
+        organization_id: user.organization.id,
+        organization_plan: user.organization.plan,
+      });
       throw new Error("This portal is for organization admins only");
     }
     tokenStore.set(token);
     setAdmin(user);
+    // Admin sign-in attempt finished successfully (fresh login, not a restored session).
+    trackEvent("admin_sign_in_completed", {
+      outcome: "success",
+      user_role: user.role,
+      organization_id: user.organization.id,
+      organization_plan: user.organization.plan,
+    });
   };
 
   const signOut = async () => {

@@ -1,6 +1,8 @@
 import { Button, Card, ErrorMessage, SelectField, TextField } from "@fieldnotes/ui";
 import { useEffect, useState, type FormEvent } from "react";
+import { trackEvent } from "../analytics/pendo";
 import { adminApi, type Billing, type Plan } from "../api/client";
+import { useAdminAuth } from "../auth/AdminAuthContext";
 
 const PLAN_OPTIONS = [
   { value: "free", label: "Free" },
@@ -8,15 +10,30 @@ const PLAN_OPTIONS = [
   { value: "enterprise", label: "Enterprise" },
 ];
 
+const PLAN_RANK: Record<Plan, number> = { free: 0, team: 1, enterprise: 2 };
+
+function billingChangeType(previous: Billing, next: Billing): string {
+  if (PLAN_RANK[next.plan] > PLAN_RANK[previous.plan]) return "upgrade";
+  if (PLAN_RANK[next.plan] < PLAN_RANK[previous.plan]) return "downgrade";
+  if (next.seats !== previous.seats) return "seats_only";
+  return "no_change";
+}
+
 export function BillingPage() {
+  const { admin } = useAdminAuth();
   const [billing, setBilling] = useState<Billing | null>(null);
+  // Last billing state confirmed by the API, kept to compare against on save.
+  const [savedBilling, setSavedBilling] = useState<Billing | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     adminApi
       .getBilling()
-      .then(setBilling)
+      .then((loaded) => {
+        setBilling(loaded);
+        setSavedBilling(loaded);
+      })
       .catch((err: Error) => setError(err.message));
   }, []);
 
@@ -27,8 +44,20 @@ export function BillingPage() {
     setSaved(false);
     setError(null);
     try {
-      setBilling(await adminApi.updateBilling(billing));
+      const updated = await adminApi.updateBilling(billing);
+      setBilling(updated);
       setSaved(true);
+      const previous = savedBilling ?? billing;
+      setSavedBilling(updated);
+      // Confirmed plan/seat subscription change (billing email is PII and is not sent).
+      trackEvent("billing_subscription_updated", {
+        previous_plan: previous.plan,
+        new_plan: updated.plan,
+        previous_seats: previous.seats,
+        new_seats: updated.seats,
+        change_type: billingChangeType(previous, updated),
+        organization_id: admin?.organization.id ?? "unknown",
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save billing details");
     }

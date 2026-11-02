@@ -1,5 +1,6 @@
 import { Badge, Button, Card, DataTable, ErrorMessage, type Column } from "@fieldnotes/ui";
 import { useEffect, useState } from "react";
+import { trackEvent } from "../analytics/pendo";
 import { adminApi, type Member, type Role } from "../api/client";
 import { useAdminAuth } from "../auth/AdminAuthContext";
 
@@ -20,6 +21,26 @@ export function UsersPage() {
     try {
       const updated = await adminApi.updateMember(member.id, changes);
       setMembers(members.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
+      if (changes.role) {
+        // Confirmed role (permission) change for a member.
+        trackEvent("member_role_changed", {
+          member_id: member.id,
+          previous_role: member.role,
+          new_role: updated.role,
+          organization_id: admin?.organization.id ?? "unknown",
+          member_count: members.length,
+        });
+      }
+      if (changes.active !== undefined) {
+        // Confirmed seat/access change: member deactivated or reactivated.
+        trackEvent("member_status_changed", {
+          member_id: member.id,
+          member_role: member.role,
+          new_active_status: updated.active,
+          action: updated.active ? "reactivated" : "deactivated",
+          organization_id: admin?.organization.id ?? "unknown",
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update the user");
     }
