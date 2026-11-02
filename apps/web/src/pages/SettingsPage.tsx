@@ -1,5 +1,6 @@
 import { Button, Card, ErrorMessage, TextField } from "@fieldnotes/ui";
 import { useState, type FormEvent } from "react";
+import { trackEvent } from "../analytics/trackEvents";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
@@ -14,8 +15,15 @@ export function SettingsPage() {
     setSaved(false);
     setError(null);
     try {
-      setUser(await api.updateMe(name));
+      const updated = await api.updateMe(name);
+      setUser(updated);
       setSaved(true);
+      // Server saved the new display name; the 'Saved.' confirmation and nav bar update.
+      trackEvent("Profile saved", {
+        user_role: updated.role,
+        organization_plan: updated.organization.plan,
+        name_changed: updated.name !== user?.name,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save your profile");
     }

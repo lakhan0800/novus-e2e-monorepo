@@ -1,5 +1,6 @@
 import { Button, ErrorMessage, TextAreaField } from "@fieldnotes/ui";
 import { useState, type FormEvent } from "react";
+import { trackEvent } from "../analytics/trackEvents";
 import { api, type ChatMessage } from "../api/client";
 
 export function AssistantPanel() {
@@ -18,8 +19,15 @@ export function AssistantPanel() {
     setSending(true);
     setError(null);
     try {
-      const { reply } = await api.askAssistant(next);
+      const { reply, model } = await api.askAssistant(next);
       setMessages([...next, { role: "assistant", content: reply }]);
+      // Assistant reply added to the conversation (failed requests show an error instead).
+      trackEvent("Assistant answered", {
+        model: model ?? "not_configured",
+        prompt_length: content.length,
+        reply_length: reply.length,
+        conversation_length: next.length + 1,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "The assistant could not answer");
     } finally {

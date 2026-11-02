@@ -2,6 +2,7 @@ import { Badge, Button, Card, ErrorMessage, TextAreaField, TextField } from "@fi
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { trackNotebookObjectEvent } from "../analytics/objectEvents";
+import { trackEvent } from "../analytics/trackEvents";
 import { api, type Note, type NotebookDetail } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
@@ -19,7 +20,14 @@ function NoteItem({
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    onSaved(await api.updateNote(notebookId, note.id, body));
+    const saved = await api.updateNote(notebookId, note.id, body);
+    // Server saved the edited note text; it is replaced in place below.
+    trackEvent("Note updated", {
+      notebook_id: notebookId,
+      note_id: saved.id,
+      note_length: saved.body.length,
+    });
+    onSaved(saved);
     setEditing(false);
   };
 
@@ -78,6 +86,13 @@ export function NotebookPage() {
   const rename = async (event: FormEvent) => {
     event.preventDefault();
     const updated = await api.renameNotebook(notebook.id, title);
+    // Server saved the new notebook title.
+    trackEvent("Notebook renamed", {
+      notebook_id: notebook.id,
+      title_length: updated.title.length,
+      notebook_shared: updated.shared,
+      note_count: updated.noteCount,
+    });
     setNotebook({ ...notebook, ...updated });
   };
 
@@ -112,6 +127,12 @@ export function NotebookPage() {
   const remove = async () => {
     if (!window.confirm(`Delete "${notebook.title}"? This cannot be undone.`)) return;
     await api.deleteNotebook(notebook.id);
+    // Server deleted the notebook; fire before sending the user back to the list.
+    trackEvent("Notebook deleted", {
+      notebook_id: notebook.id,
+      note_count: notebook.noteCount,
+      notebook_shared: notebook.shared,
+    });
     navigate("/");
   };
 
