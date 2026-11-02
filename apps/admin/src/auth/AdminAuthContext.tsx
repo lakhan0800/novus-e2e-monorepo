@@ -1,5 +1,15 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { adminApi, tokenStore, type AdminProfile } from "../api/client";
+import { identifyAdmin } from "../pendo";
+
+function identifyWithPendo(profile: AdminProfile) {
+  identifyAdmin(profile);
+  // Seats are only exposed by the billing endpoint; enrich the account once it loads.
+  adminApi
+    .getBilling()
+    .then((billing) => identifyAdmin(profile, billing))
+    .catch(() => undefined);
+}
 
 interface AdminAuthState {
   admin: AdminProfile | null;
@@ -19,8 +29,10 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     adminApi
       .me()
       .then((profile) => {
-        if (profile.role === "admin") setAdmin(profile);
-        else tokenStore.clear();
+        if (profile.role === "admin") {
+          setAdmin(profile);
+          identifyWithPendo(profile);
+        } else tokenStore.clear();
       })
       .catch(() => tokenStore.clear())
       .finally(() => setLoading(false));
@@ -36,6 +48,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     }
     tokenStore.set(token);
     setAdmin(user);
+    identifyWithPendo(user);
   };
 
   const signOut = async () => {
@@ -44,6 +57,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     } finally {
       tokenStore.clear();
       setAdmin(null);
+      pendo.clearSession();
     }
   };
 

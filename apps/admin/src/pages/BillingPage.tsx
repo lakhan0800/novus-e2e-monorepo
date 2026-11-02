@@ -1,6 +1,8 @@
 import { Button, Card, ErrorMessage, SelectField, TextField } from "@fieldnotes/ui";
 import { useEffect, useState, type FormEvent } from "react";
 import { adminApi, type Billing, type Plan } from "../api/client";
+import { useAdminAuth } from "../auth/AdminAuthContext";
+import { identifyAdmin } from "../pendo";
 
 const PLAN_OPTIONS = [
   { value: "free", label: "Free" },
@@ -9,6 +11,7 @@ const PLAN_OPTIONS = [
 ];
 
 export function BillingPage() {
+  const { admin } = useAdminAuth();
   const [billing, setBilling] = useState<Billing | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +30,10 @@ export function BillingPage() {
     setSaved(false);
     setError(null);
     try {
-      setBilling(await adminApi.updateBilling(billing));
+      const updated = await adminApi.updateBilling(billing);
+      setBilling(updated);
       setSaved(true);
+      if (admin) identifyAdmin(admin, updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save billing details");
     }

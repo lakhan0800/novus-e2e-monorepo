@@ -5,6 +5,8 @@ import "@fieldnotes/ui/styles.css";
 import { App } from "./App";
 import { AdminAuthProvider } from "./auth/AdminAuthContext";
 
+pendo.initialize({ visitor: { id: "" } });
+
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root element");
 
