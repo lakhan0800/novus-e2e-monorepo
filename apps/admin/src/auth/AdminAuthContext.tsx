@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { clearPendoSession, identifyAdmin } from "../analytics/pendo";
 import { adminApi, tokenStore, type AdminProfile } from "../api/client";
 
 interface AdminAuthState {
@@ -19,8 +20,10 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     adminApi
       .me()
       .then((profile) => {
-        if (profile.role === "admin") setAdmin(profile);
-        else tokenStore.clear();
+        if (profile.role === "admin") {
+          setAdmin(profile);
+          identifyAdmin(profile);
+        } else tokenStore.clear();
       })
       .catch(() => tokenStore.clear())
       .finally(() => setLoading(false));
@@ -36,6 +39,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     }
     tokenStore.set(token);
     setAdmin(user);
+    identifyAdmin(user);
   };
 
   const signOut = async () => {
@@ -44,6 +48,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     } finally {
       tokenStore.clear();
       setAdmin(null);
+      clearPendoSession();
     }
   };
 

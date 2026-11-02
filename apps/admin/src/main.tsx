@@ -5,6 +5,14 @@ import "@fieldnotes/ui/styles.css";
 import { App } from "./App";
 import { AdminAuthProvider } from "./auth/AdminAuthContext";
 
+// Boot Novus by Pendo once with an anonymous visitor; the signed-in admin is
+// registered later via pendo.identify in AdminAuthContext.
+pendo.initialize({
+  visitor: {
+    id: "",
+  },
+});
+
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root element");
 
